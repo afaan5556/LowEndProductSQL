@@ -1,3 +1,4 @@
+-- ######## LINE LEVEL ######## --
 -- This makes a wide table of workday and airtable data
 -- When we join this to dpr if you mult the floor_usf by the per_usf #'s you should get to the spend for that line item, in that cpi, on that floor
 -- You should use the ifnull(floor_usf, 0.00001) for you usf multiplier in case there is an active project that has no usf then all the cost will be allocated evenly across the floors (i think) 
