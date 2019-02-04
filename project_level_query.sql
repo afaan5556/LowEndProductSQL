@@ -9,7 +9,7 @@ WITH at_revision
 AS (SELECT
   id,
   ROW_NUMBER() OVER (PARTITION BY project_code ORDER BY submitted_date DESC) AS rn
-FROM playground.airtable_budgets),
+FROM workday_development.airtable_budgets),
 
 -- Find Project total USF
 project_total
@@ -33,7 +33,7 @@ AS (SELECT
   LOWER(b.description) AS at_line_item,
   CAST(initial_cost AS DOUBLE PRECISION) / pt.project_usf AS at_budget_line_per_usf, -- get per usf # so when we join to dpr we mult by square feet on that floor/ area 
   currency AS at_currency
-FROM playground.airtable_budgets b
+FROM workday_development.airtable_budgets b
 LEFT JOIN at_revision
   ON at_revision.id = b.id
 LEFT JOIN stargate_bi_stargate.bi_project p -- need this to turn 4 digit code into project_uuid
