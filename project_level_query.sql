@@ -31,7 +31,8 @@ AS (SELECT
   signed_off_date AS at_sign_date,
   COALESCE(REPLACE(REPLACE(UPPER(REPLACE(b.category, '_', ' ')), 'COSTS', 'COST'), ' ', ' '), 'OTHER') AS at_cpi, -- ADDED CPI TRANSLATOR STUFF HERE 
   LOWER(b.description) AS at_line_item,
-  CAST(initial_cost AS DOUBLE PRECISION) / pt.project_usf AS at_budget_line_per_usf, -- get per usf # so when we join to dpr we mult by square feet on that floor/ area 
+  CAST(initial_cost AS DOUBLE PRECISION) / pt.project_usf AS at_budget_line_per_usf, -- get per usf # so when we join to dpr we mult by square feet on that floor/ area
+  CAST(initial_cost AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS at_budget_line_per_desk, -- get per desk # so when we join to dpr we mult by desks on that floor/ area
   currency AS at_currency
 FROM workday_development.airtable_budgets b
 LEFT JOIN at_revision
@@ -57,7 +58,13 @@ AS (SELECT
   CAST(total_projected_spend_po_supplier_contract_ AS DOUBLE PRECISION) / pt.project_usf AS jcr_projected_per_usf,
   CAST(invoiced_amount AS DOUBLE PRECISION) / pt.project_usf AS jcr_invoiced_amount_per_usf,
   CAST(expense_report AS DOUBLE PRECISION) / pt.project_usf AS jcr_expense_report_per_usf,
-  CAST(current_budget AS DOUBLE PRECISION) / pt.project_usf AS jcr_budget_line_per_usf
+  CAST(current_budget AS DOUBLE PRECISION) / pt.project_usf AS jcr_budget_line_per_usf,
+  CAST(total_paid_amount_paid_expense_report_credit_card_intercompany_ AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS jcr_actuals_per_desk,
+  CAST(total_projected_spend_po_supplier_contract_ AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS jcr_projected_per_desk,
+  CAST(invoiced_amount AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS jcr_invoiced_amount_per_desk,
+  CAST(expense_report AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS jcr_expense_report_per_desk,
+  CAST(current_budget AS DOUBLE PRECISION) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS jcr_budget_line_per_desk
+
 FROM workday_development.mv_workday_job_cost_report jcr
 LEFT JOIN stargate_bi_stargate.bi_project p
   ON p.id = jcr.project_id
@@ -116,6 +123,12 @@ AS (SELECT
     WHEN sg_revision_detail.rate IS NULL THEN r.rate
     ELSE sg_revision_detail.rate
   END) / pt.project_usf AS sg_budget_per_usf,
+  sg_revision_detail.budget * (CASE
+    WHEN sg_revision_detail.rate IS NULL AND
+      r.rate IS NULL THEN 1
+    WHEN sg_revision_detail.rate IS NULL THEN r.rate
+    ELSE sg_revision_detail.rate
+  END) / CASE WHEN pt.project_desks = 0 THEN 1 ELSE pt.project_desks END AS sg_budget_per_desk,
   
   sg_revision_detail.currency AS sg_currency
   
@@ -147,15 +160,22 @@ detail AS (SELECT
   COALESCE(airtable.at_line_item, COALESCE(workday.jcr_line_item, stargate.sg_line_item)) AS line_item, -- and here
   airtable.at_sign_date,
   MAX(airtable.at_budget_line_per_usf) AS at_budget_line_per_usf,
+  MAX(airtable.at_budget_line_per_desk) AS at_budget_line_per_desk,
   airtable.at_currency,
   stargate.sg_budget_date,
   MAX(stargate.sg_budget_per_usf) AS sg_budget_per_usf,
+  MAX(stargate.sg_budget_per_desk) AS sg_budget_per_desk,
   stargate.sg_currency,
   MAX(workday.jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf,
   MAX(workday.jcr_expense_report_per_usf) AS jcr_expense_report_per_usf,
   MAX(workday.jcr_budget_line_per_usf) AS jcr_budget_line_per_usf,
   MAX(workday.jcr_actuals_per_usf) AS jcr_actuals_per_usf,
-  MAX(workday.jcr_projected_per_usf) AS jcr_projected_per_usf
+  MAX(workday.jcr_projected_per_usf) AS jcr_projected_per_usf,
+  MAX(workday.jcr_invoiced_amount_per_desk) AS jcr_invoiced_amount_per_desk,
+  MAX(workday.jcr_expense_report_per_desk) AS jcr_expense_report_per_desk,
+  MAX(workday.jcr_budget_line_per_desk) AS jcr_budget_line_per_desk,
+  MAX(workday.jcr_actuals_per_desk) AS jcr_actuals_per_desk,
+  MAX(workday.jcr_projected_per_desk) AS jcr_projected_per_desk
 FROM airtable
 FULL JOIN workday
   ON airtable.project_uuid = workday.project_uuid
@@ -171,9 +191,9 @@ GROUP BY 1,
          4,
          5,
          6,
-         8,
          9,
-         11
+         10,
+         13
 ORDER BY 1, 2, 3
 )
 
@@ -182,6 +202,7 @@ SELECT
   
   MAX(at_sign_date) AS at_sign_date,
   SUM(at_budget_line_per_usf) AS at_budget_line_per_usf_total,
+  SUM(at_budget_line_per_desk) AS at_budget_line_per_desk_total,
   MAX(at_currency) AS at_currency,
   
   MAX(project_total_usf) AS project_total_usf,
@@ -189,13 +210,19 @@ SELECT
 
   MAX(sg_budget_date) AS sg_budget_date,
   SUM(sg_budget_per_usf) AS sg_budget_per_usf_total,
+  SUM(sg_budget_per_desk) AS sg_budget_per_desk_total,
   MAX(sg_currency) AS sg_currency,
 
   SUM(jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf_total,
   SUM(jcr_expense_report_per_usf) AS jcr_expense_report_per_usf_total,
   SUM(jcr_budget_line_per_usf) AS jcr_budget_line_per_usf_total,
   SUM(jcr_actuals_per_usf) AS jcr_actuals_per_usf_total,
-  SUM(jcr_projected_per_usf) AS jcr_projected_per_usf_total
+  SUM(jcr_projected_per_usf) AS jcr_projected_per_usf_total,
+  SUM(jcr_invoiced_amount_per_desk) AS jcr_invoiced_amount_per_desk_total,
+  SUM(jcr_expense_report_per_desk) AS jcr_expense_report_per_desk_total,
+  SUM(jcr_budget_line_per_desk) AS jcr_budget_line_per_desk_total,
+  SUM(jcr_actuals_per_desk) AS jcr_actuals_per_desk_total,
+  SUM(jcr_projected_per_desk) AS jcr_projected_per_desk_total
 FROM detail
 
 GROUP BY project_uuid
