@@ -10,3 +10,4 @@ Working SQL files for increasingly complicated queries - 2018/19
 * Casting `AS DOUBLE PRECISION` on various fields to limit rounding errors
 * Using `COALESCE` to get single column of data across workday, stargate, and airtable
 * Gets line_level, cpi_level, and project_level costs_per_usf along with project_total_usf to make Tableau calcs easier
+* For projects with `0` desks (rather than `Null` desks) a `CASE` statemenet is used to fill in 1 desk to avoid division by zero
