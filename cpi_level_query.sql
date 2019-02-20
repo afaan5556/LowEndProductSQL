@@ -1,4 +1,4 @@
--- ######## LINE LEVEL ######## --
+-- ######## CPI LEVEL ######## --
 -- This makes a wide table of workday and airtable data
 -- When we join this to dpr if you mult the floor_usf by the per_usf #'s you should get to the spend for that line item, in that cpi, on that floor
 -- You should use the ifnull(floor_usf, 0.00001) for you usf multiplier in case there is an active project that has no usf then all the cost will be allocated evenly across the floors (i think) 
@@ -115,7 +115,7 @@ AS (SELECT
       r.rate IS NULL THEN 1
     WHEN sg_revision_detail.rate IS NULL THEN r.rate
     ELSE sg_revision_detail.rate
-  END) / pt.project_usf AS sg_cpi_budget_per_usf,
+  END) / pt.project_usf AS sg_budget_per_usf,
   
   sg_revision_detail.currency AS sg_currency
   
@@ -132,14 +132,14 @@ LEFT JOIN dw.mv_exchange_rates r
 LEFT JOIN project_total pt
   ON b.project_uuid = pt.project_uuid
 WHERE sg_revision.rn = 1
-AND sg_cpi_budget_per_usf IS NOT NULL
-AND sg_cpi_budget_per_usf != 0
+AND sg_budget_per_usf IS NOT NULL
+AND sg_budget_per_usf != 0
 AND sg_revision._fivetran_deleted = FALSE
 AND pt.project_uuid IS NOT NULL -- only if there is a project with more than 0 square feet
-)
+),
 
--- Final query
-SELECT
+-- Final query as a detail to pull project roll up from
+detail AS (SELECT
   COALESCE(airtable.project_uuid, COALESCE(workday.project_uuid, stargate.project_uuid)) AS project_uuid, -- We won't get 100% matches so this makes sure this columns is populated all the way down
   COALESCE(airtable.project_total_usf, COALESCE(workday.project_total_usf, stargate.project_total_usf)) AS project_total_usf,
   COALESCE(airtable.project_total_desks, COALESCE(workday.project_total_desks, stargate.project_total_desks)) AS project_total_desks,
@@ -149,7 +149,7 @@ SELECT
   MAX(airtable.at_budget_line_per_usf) AS at_budget_line_per_usf,
   airtable.at_currency,
   stargate.sg_budget_date,
-  MAX(stargate.sg_cpi_budget_per_usf) AS sg_cpi_budget_per_usf,
+  MAX(stargate.sg_budget_per_usf) AS sg_budget_per_usf,
   stargate.sg_currency,
   MAX(workday.jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf,
   MAX(workday.jcr_expense_report_per_usf) AS jcr_expense_report_per_usf,
@@ -175,3 +175,28 @@ GROUP BY 1,
          9,
          11
 ORDER BY 1, 2, 3
+)
+
+SELECT
+  project_uuid,
+  cpi,
+  
+  MAX(at_sign_date) AS at_sign_date,
+  SUM(at_budget_line_per_usf) AS at_budget_line_per_usf_total,
+  MAX(at_currency) AS at_currency,
+  
+  MAX(project_total_usf) AS project_total_usf,
+  MAX(project_total_desks) AS project_total_desks,
+
+  MAX(sg_budget_date) AS sg_budget_date,
+  SUM(sg_budget_per_usf) AS sg_budget_per_usf_total,
+  MAX(sg_currency) AS sg_currency,
+
+  SUM(jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf_total,
+  SUM(jcr_expense_report_per_usf) AS jcr_expense_report_per_usf_total,
+  SUM(jcr_budget_line_per_usf) AS jcr_budget_line_per_usf_total,
+  SUM(jcr_actuals_per_usf) AS jcr_actuals_per_usf_total,
+  SUM(jcr_projected_per_usf) AS jcr_projected_per_usf_total
+FROM detail
+
+GROUP BY project_uuid, cpi
