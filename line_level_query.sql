@@ -15,9 +15,9 @@ FROM workday_development.airtable_budgets),
 project_total
 AS (SELECT
   SUM(COALESCE(floor_usf, 0.00001)) AS project_usf, -- this is basically ifnull()
-  SUM(COALESCE(floor_desks, 1)) AS project_desks, -- this is basically ifnull()
+  SUM(COALESCE(floor_desks, 0.01)) AS project_desks, -- this is basically ifnull()
   project_uuid
-FROM stargate_bi_stargate.mv_desk_projections_v2
+FROM redtech_dw.mv_desk_projections_v2
 GROUP BY project_uuid
 HAVING SUM(COALESCE(floor_usf, 0.00001)) > 0 -- Must be more than zero bc we can't divide by zero, this would only be if the project wasn't in the dpr (dead)
 ),
