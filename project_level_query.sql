@@ -201,28 +201,28 @@ SELECT
   project_uuid,
 
   MAX(at_sign_date) AS at_sign_date,
-  SUM(at_budget_line_per_usf) AS at_budget_line_per_usf_total,
-  SUM(at_budget_line_per_desk) AS at_budget_line_per_desk_total,
+  MAX(at_budget_line_per_usf) AS at_budget_line_per_usf_total,
+  MAX(at_budget_line_per_desk) AS at_budget_line_per_desk_total,
   MAX(at_currency) AS at_currency,
 
   MAX(project_total_usf) AS project_total_usf,
   MAX(project_total_desks) AS project_total_desks,
 
   MAX(sg_budget_date) AS sg_budget_date,
-  SUM(sg_budget_per_usf) AS sg_budget_per_usf_total,
-  SUM(sg_budget_per_desk) AS sg_budget_per_desk_total,
+  MAX(sg_budget_per_usf) AS sg_budget_per_usf_total,
+  MAX(sg_budget_per_desk) AS sg_budget_per_desk_total,
   MAX(sg_currency) AS sg_currency,
 
-  SUM(jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf_total,
-  SUM(jcr_expense_report_per_usf) AS jcr_expense_report_per_usf_total,
-  SUM(jcr_budget_line_per_usf) AS jcr_budget_line_per_usf_total,
-  SUM(jcr_actuals_per_usf) AS jcr_actuals_per_usf_total,
-  SUM(jcr_projected_per_usf) AS jcr_projected_per_usf_total,
-  SUM(jcr_invoiced_amount_per_desk) AS jcr_invoiced_amount_per_desk_total,
-  SUM(jcr_expense_report_per_desk) AS jcr_expense_report_per_desk_total,
-  SUM(jcr_budget_line_per_desk) AS jcr_budget_line_per_desk_total,
-  SUM(jcr_actuals_per_desk) AS jcr_actuals_per_desk_total,
-  SUM(jcr_projected_per_desk) AS jcr_projected_per_desk_total
+  MAX(jcr_invoiced_amount_per_usf) AS jcr_invoiced_amount_per_usf_total,
+  MAX(jcr_expense_report_per_usf) AS jcr_expense_report_per_usf_total,
+  MAX(jcr_budget_line_per_usf) AS jcr_budget_line_per_usf_total,
+  MAX(jcr_actuals_per_usf) AS jcr_actuals_per_usf_total,
+  MAX(jcr_projected_per_usf) AS jcr_projected_per_usf_total,
+  MAX(jcr_invoiced_amount_per_desk) AS jcr_invoiced_amount_per_desk_total,
+  MAX(jcr_expense_report_per_desk) AS jcr_expense_report_per_desk_total,
+  MAX(jcr_budget_line_per_desk) AS jcr_budget_line_per_desk_total,
+  MAX(jcr_actuals_per_desk) AS jcr_actuals_per_desk_total,
+  MAX(jcr_projected_per_desk) AS jcr_projected_per_desk_total
 FROM detail
 
 GROUP BY project_uuid
